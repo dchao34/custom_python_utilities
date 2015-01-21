@@ -92,8 +92,12 @@ def histR(arr, weights=None, ax=None,
 
     """
 
+    fig = None
     if ax is None:
-        ax = plt.gca()
+        fig = plt.figure(figsize=(6 * constants.golden, 6))
+        ax = fig.add_subplot(111)
+    format_axes(ax)
+
     if xlabel:
         ax.set_xlabel(xlabel, fontsize=axislabel_fontsize)
     if ylabel:
@@ -153,7 +157,6 @@ if __name__ == "__main__":
     data2 = np.random.normal(5, 4, 1000)
     fig = plt.figure(figsize=(6 * constants.golden, 6))
     ax = fig.add_subplot(111)
-    format_axes(ax)
     histR([data1, data2], ax=ax,
           bins=20, spline_bins=[10, 10],
           xlabel=r"Feature (Units)", ylabel='Counts')
