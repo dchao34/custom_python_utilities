@@ -3,10 +3,9 @@ import matplotlib.pyplot as plt
 import scipy
 from scipy import constants
 from scipy import interpolate
-from sklearn.neighbors import KernelDensity
 
-hist_color = [ '#00CCCC', '#FFCCCC', '#FFFF99' ]
-spline_color = [ '#009999', '#FF9999', '#FFFF66' ]
+hist_color = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
+spline_color = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
 
 def format_axes(ax, tick_fontsize=18):
     ax.spines["top"].set_visible(False)
@@ -33,42 +32,64 @@ def spline_hist(arr, bins, weights):
 
     spline = interpolate.UnivariateSpline(edges_m, values_m, k=3, ext=1, s=0)
 
-    return spline, edges_m[0], edges_m[-1]
+    return spline, edges_m[0], edges_m[-1], bwidths[0]
 
 def histR(arr, weights=None, ax=None,
-          bins=None, show_hist=True,
-          spline_bins=None, normed=False,
+          bins=None, spline_bins=None, normed=False,
+          show_hist=True, show_spline=True,
           xlabel=None, ylabel=None, title=None,
           axislabel_fontsize=20,
           hist_lw=0.5, spline_lw=4, spline_style='-',
           spline_nevalpts=1000, **kwargs):
     """
-    Plot a histogram with extended functionality.
+    Plot a histogram with extended functionality to interpolate and normalize.
 
-    Compute and draw the histogram of *x*. The return value is a
-    tuple (*n*, *bins*, *patches*) or ([*n0*, *n1*, ...], *bins*,
-    [*patches0*, *patches1*,...]) if the input contains multiple
-    data.
+    This function extends the `hist()` function built into matplotlib.
+    It computes and plots the histogram of *arr*, but can optionally
+    compute and plot an interpolated spline. One can request the plots
+    to be normalized to give an approximation of the density function.
+    (It is of course not a real density estimate, but gives a similar
+    form.)
 
-    Multiple data can be provided via *x* as a list of datasets
-    of potentially different length ([*x0*, *x1*, ...]), or as
-    a 2-D ndarray in which each column is a dataset.  Note that
-    the ndarray form is transposed relative to the list form.
+    The splines are computed using histogram values. You can tune the
+    distance between the nots by changing the bin number. Note that the
+    number of bins for the spline interpolation need not be the same as
+    for the histogram.
 
-    Masked arrays are not supported at present.
+    You can also input multiple data for *arr*. You specify this the
+    same way as you would have for matplotlib's `hist()` function.
+    For example, *arr* = [ arr1, arr2, arr3 ].
 
     Parameters
     ----------
-    x : (n,) array or sequence of (n,) arrays
-        Input values, this takes either a single array or a sequency of
-        arrays which are not required to be of the same length
+    arr : (n,) array or list of (n,) arrays
+          Input values, this takes either a single array or a list of
+          arrays which are not required to be of the same length.
 
-    bins : integer or array_like, optional, default: 10
-        If an integer is given, `bins + 1` bin edges are returned,
-        consistently with :func:`numpy.histogram` for numpy version >=
-        1.3.
+    weights : (n,) array or list of (n,) arrays
+              Input weights for `arr`. If a list is given, it must be
+              the same length as `arr`.
 
-        Unequally spaced bins are supported if `bins` is a sequence.
+    bins : Integer, optional. Default: Freedman-diaconis.
+           Number of bins for the histogram.
+
+    spline_bins : Integer or a list of integers, optional. Default: Freedman-diaconis.
+                  Number of bins for the spline interpolation.
+                  If a list is provided, it should have the same length as `arr`.
+
+    normed : Normalize the results before plotting. Default: False.
+
+    show_hist : Plot the histogram. Default: True.
+
+    Other formal keyword arguments are for plot formatting.
+
+    kwargs are the same as those for the original `hist()` function.
+
+    Returns
+    -------
+    This function does not return anything.
+    (In contrast to the original `hist()` function)
+
     """
 
     if ax is None:
@@ -83,41 +104,44 @@ def histR(arr, weights=None, ax=None,
     if not isinstance(arr, list):
         arr = [ arr ]
 
-    if bins is None:
-        bins = [ None ] * len(arr)
-    elif not isinstance(bins, list):
-        bins = [ bins ]
+    if weights is None:
+        weights = [ None ] * len(arr)
+    elif not isinstance(weights, list):
+        weights = [ weights ]
 
     if spline_bins is None:
         spline_bins = [ None ] * len(arr)
     elif not isinstance(spline_bins, list):
         spline_bins = [ spline_bins ]
-    if not normed:
-        spline_bins = bins
 
     for i in range(len(arr)):
 
-        if bins[i] is None:
-            bins[i] = freedman_diaconis(arr[i])
+        if bins is None:
+            bins = freedman_diaconis(arr[i])
         if spline_bins[i] is None:
             spline_bins[i] = freedman_diaconis(arr[i])
 
+        hist_bwidth = 1
         if show_hist:
-            values, edges, patches = ax.hist(arr[i], bins=bins[i],
-                                             weights=weights, normed=normed,
+            values, edges, patches = ax.hist(arr[i], bins=bins,
+                                             weights=weights[i], normed=normed,
                                              lw=hist_lw,
                                              color=hist_color[i % len(hist_color)],
                                              **kwargs)
+            hist_bwidth = edges[1] - edges[0]
             for p in patches: p.set_ec('white')
 
-        spline, spline_xmin, spline_xmax = spline_hist(arr[i], spline_bins[i], weights)
-        spline_x = np.linspace(spline_xmin, spline_xmax, spline_nevalpts)
-        normalization = 1
-        if normed:
-            normalization = spline.integral(spline_xmin, spline_xmax)
-        ax.plot(spline_x, spline(spline_x) / normalization,
-                spline_style, lw=spline_lw,
-                color=spline_color[i % len(spline_color)])
+        if show_spline:
+            spline, spline_xmin, spline_xmax, spline_bwidth = spline_hist(arr[i], spline_bins[i], weights[i])
+            spline_x = np.linspace(spline_xmin, spline_xmax, spline_nevalpts)
+
+            if normed:
+                normalization = spline.integral(spline_xmin, spline_xmax)
+            else:
+                normalization = spline_bwidth / hist_bwidth
+            ax.plot(spline_x, spline(spline_x) / normalization,
+                    spline_style, lw=spline_lw,
+                    color=spline_color[i % len(spline_color)])
 
     ax.set_ylim(0)
 
@@ -131,8 +155,7 @@ if __name__ == "__main__":
     ax = fig.add_subplot(111)
     format_axes(ax)
     histR([data1, data2], ax=ax,
-          bins=[10, 20], show_hist=True,
-          spline_bins=[10, 20], normed=False,
-          xlabel=r"$E_{extra}$ (GeV)", ylabel='Counts')
+          bins=20, spline_bins=[10, 10],
+          xlabel=r"Feature (Units)", ylabel='Counts')
     plt.show()
 
