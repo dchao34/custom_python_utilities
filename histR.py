@@ -3,18 +3,11 @@ import matplotlib.pyplot as plt
 import scipy
 from scipy import constants
 from scipy import interpolate
+from plot_format import format_axes
 
 hist_color = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
 spline_color = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
 
-def format_axes(ax, tick_fontsize=18):
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.get_xaxis().tick_bottom()
-    ax.get_yaxis().tick_left()
-    plt.xticks(fontsize=tick_fontsize)
-    plt.yticks(fontsize=tick_fontsize)
-    return ax
 
 def freedman_diaconis(arr):
     iqr = np.percentile(arr, 75) - np.percentile(arr, 25)
