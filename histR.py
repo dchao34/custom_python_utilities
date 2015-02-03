@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import scipy
 from scipy import constants
 from scipy import interpolate
-from plot_format import format_axes
+from plot_format import create_single_figure
 
 hist_color = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
 spline_color = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
@@ -87,9 +87,7 @@ def histR(arr, weights=None, ax=None,
 
     fig = None
     if ax is None:
-        fig = plt.figure(figsize=(6 * constants.golden, 6))
-        ax = fig.add_subplot(111)
-    format_axes(ax)
+        fig, ax = create_single_figure()
 
     if xlabel:
         ax.set_xlabel(xlabel, fontsize=axislabel_fontsize)

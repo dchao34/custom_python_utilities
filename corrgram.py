@@ -171,7 +171,7 @@ def corrgram(x, names,
                    Size of the figure to create.
         *undersample*: float (default=None).
                        The proportion of points to plot in the scatter plot.
-        *markersize*: float (default=None)
+        *marker_size*: float (default=None)
                       Marker size in the scatter plot. Same convention as
                       pyplot.scatter's *s* parameter.
         *tight*: bool (default=True)
