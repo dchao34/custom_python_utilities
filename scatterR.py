@@ -149,8 +149,9 @@ def rec_scatterR(X, Y,
     **kwargs are keyword arguments for scatterR. The notable ones are listed
     below; for the others, please see scatterR.
 
-    *undersample* : Float or a list of floats. Fractin of events to display in
-                   scatter plot.
+    *undersample* : Float or a list of floats. Fraction of events to display in
+                    the scatter plot. If a list is provided, its length must
+                    be the same as `categories`.
 
     *s* : This is the markersize. Default: 80
 
