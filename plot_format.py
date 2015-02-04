@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 # Given an Axes object, format it into the style specified in this function.
 def format_axes(ax, tick_fontsize=18, spines=False):
 
+    # Autoscale to data
+    ax.autoscale(tight=True)
+
     # Remove unecessary spines
     if not spines:
         ax.spines["top"].set_visible(False)
