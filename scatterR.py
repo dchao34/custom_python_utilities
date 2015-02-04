@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from plot_format import create_single_figure, format_axes
 
 # Default scatter plot color scheme
-color = [ '#53ACCA', '#FFC466', '#FFAAAA', '#98D68E', '#CE89BE']
+color_single = [ 'gray' ]
+color_wheel = [ '#53ACCA', '#FFC466', '#FFAAAA', '#98D68E', '#CE89BE']
 
 # Create a mask to indicate which array elements should be included in the
 # subsampling.
@@ -31,8 +32,8 @@ def generate_subsample_mask(length, fraction=None):
 # Create a scatter plot. Wraps pyplot.scatter for the actual plotting.
 def scatterR(x1, x2, undersample=None,
              ax=None,
-             s=80, linewidth=1.7,
-             facecolor='none', edgecolor=None,
+             marker_size=80, linewidth=1.7,
+             edgecolor=None, facecolor='none',
              xlabel=None, ylabel=None, title=None,
              axislabel_fontsize=20):
     """
@@ -63,15 +64,16 @@ def scatterR(x1, x2, undersample=None,
     ax : This is the axes for which to draw the scatterplot.
          pyplot.gca() is used if none is provided.
 
-    s : This is the markersize. Same as the `s` parameter for pyplot.scatter.
-        Default: 80
+    marker_size : This is the markersize. Same as the `s` parameter for pyplot.scatter.
+                  Default: 80
 
     linewidth : Linewidth for the marker circle. Default: 1.7.
 
-    facecolor : Marker facecolor. Default: None (no fill).
-
     edgecolor : Marker line color. Default: None, which is the color rotation set
-               by this module.
+                by this module; gray for a single cluster, default color wheel
+                otherwise.
+
+    facecolor : Marker facecolor. Default: None (no fill; recommended).
 
     xlabel : X axis label.
 
@@ -94,14 +96,20 @@ def scatterR(x1, x2, undersample=None,
     if ylabel: ax.set_ylabel(ylabel, fontsize=axislabel_fontsize)
     if title: ax.set_title(title, fontsize=axislabel_fontsize)
 
-    # Color coding of the scatter plot
-    if not edgecolor: edgecolor=color
-
     # Preprocess the features and undersampling parameters into lists. This is
     # to accomodate for multi-category plotting.
     if not isinstance(x1, (list, tuple)): x1, x2 = [ x1 ], [ x2 ]
     if not isinstance(undersample, (list, tuple)):
         undersample = [ undersample ] * len(x1)
+
+    # Color coding of the scatter plot
+    if not edgecolor:
+        if len(x1) == 1:
+            edgecolor=color_single
+        else:
+            edgecolor=color_wheel
+    else:
+        if not isinstance(edgecolor, (list, tuple)): edgecolor = [ edgecolor ]
 
     # Iteratively plot each category
     for i in range(len(x1)):
@@ -114,14 +122,52 @@ def scatterR(x1, x2, undersample=None,
 
         # Use pyplot.scatter to plot.
         ax.scatter(x1_i, x2_i,
-                   s=s, linewidth=linewidth,
+                   s=marker_size, linewidth=linewidth,
                    facecolor=facecolor,
                    edgecolor=edgecolor[i % len(edgecolor)])
 
+# Partition x1, x2 by Y.
+#
+# Input:
+#
+#     x1, x2 : 1D ndarrays of the same length.
+#
+#     Y : 1D ndarray of the same length as x1 and x2. Element i of Y is a label
+#        for element i for both x1 and x2.
+#
+#     categories : List of labels from Y to include in the result.
+#
+# Output:
+#
+#     x1_list, x2_list : List of 1D ndarrays that partitions x1 and x2 by the
+#                        labels in Y. Only those labels in `categories` is
+#                        included in the list.
+#
+def partition_by_labels(x1, x2, Y=None, categories=None):
+
+    x1_list, x2_list = [], []
+
+    # If no Y is given, return a single partition containing all elements.
+    if Y is None:
+        x1_list, x2_list = [ x1 ], [ x2 ]
+    else:
+        # If no specific categories are given, then partition by all unique
+        # labels in Y.
+        if not categories:
+            categories = np.unique(Y)
+
+        # Perform the partition.
+        for i, l in enumerate(categories):
+            subset = (Y == l)
+            x1_l, x2_l = x1[subset], x2[subset]
+            x1_list.append(x1_l)
+            x2_list.append(x2_l)
+
+    return x1_list, x2_list
+
 # Wrapper for scatterR for structured arrays.
-def rec_scatterR(X, Y,
-                 feature1_name, feature2_name,
-                 categories=None,
+def rec_scatterR(X, feature1_name, feature2_name,
+                 Y=None, categories=None,
                  **kwargs):
     """
     This is a convenience wrapper for using scatterR with structured arrays.
@@ -133,18 +179,18 @@ def rec_scatterR(X, Y,
     ----------
     X : Structured ndarray. It contains any number of named columns.
 
-    Y : 1D ndarray. Element j contains the category label for row j in X.
-
     feature1_name : The field entry name in X that should be the first
                     feature axis in the scatter plot.
 
     feature2_name : The field entry name in X that should be the second
                     feature axis in the scatter plot.
 
-    categories : List of categories to be included in the scatter plot. Each
-                 category gets a cluster. List entries must be the same as the
-                 labels that occur in Y. By default, all possible labels in Y
-                 gets plotted.
+    Y : 1D ndarray. Element j contains the category label for row j in X.
+        Default: None. This treats everything as a single category.
+
+    categories : If Y is given, then this is the list of categories to be included
+                 in the scatter plot. The entries in this list must be an existing
+                 entry in Y. Default: None; this gives every category in Y a cluster.
 
     **kwargs are keyword arguments for scatterR. The notable ones are listed
     below; for the others, please see scatterR.
@@ -153,7 +199,7 @@ def rec_scatterR(X, Y,
                     the scatter plot. If a list is provided, its length must
                     be the same as `categories`.
 
-    *s* : This is the markersize. Default: 80
+    *marker_size* : This is the markersize. Default: 80
 
     *linewidth* : Linewidth for the marker circle. Default: 1.7.
 
@@ -172,19 +218,10 @@ def rec_scatterR(X, Y,
     # Get the actual feature arrays.
     x1, x2 = X[feature1_name], X[feature2_name]
 
-    # If none given, then plot all possibilities.
-    if not categories:
-        categories = np.unique(Y)
+    # Partition by labels
+    x1_list, x2_list = partition_by_labels(x1, x2, Y, categories)
 
-    # Assemble x1 and x2 to be passed into scatterR. One list element for each
-    # listed category.
-    x1_list, x2_list = [], []
-    for i, l in enumerate(categories):
-        subset = (Y == l)
-        x1_l, x2_l = x1[subset], x2[subset]
-        x1_list.append(x1_l)
-        x2_list.append(x2_l)
-
+    # Plot by partitions
     scatterR(x1_list, x2_list, **kwargs)
 
 
@@ -199,6 +236,6 @@ if __name__ == "__main__":
     fig, ax = create_single_figure(figsize=(10, 10))
     scatterR([x1, x2, x3, x4, x5],
              [y1, y2, y3, y4, y5],
-             undersample=[0.01, 0.1, None, 0.2, None],
+             undersample=[0.1, 0.1, None, 0.2, None],
              ax=ax, xlabel='feature 1', ylabel='feature 2')
     plt.show()

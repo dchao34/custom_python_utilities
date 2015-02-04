@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy import stats
 from plot_format import format_axes
-from scatterR import scatterR
+from scatterR import scatterR, partition_by_labels
 
 # Create the plotting area. Return the figure object and a list of list of Axes
 # objects. We can access the (i,j)th Axes object in axs[i][j].
-def create_plotting_area(M, figsize=None, tight=None, nbins=None):
+def create_plotting_area(M, figsize=None, tight=None, tick_nbins=None):
     if not figsize:
         figsize=(10,10)
 
@@ -27,51 +27,34 @@ def create_plotting_area(M, figsize=None, tight=None, nbins=None):
             # Adjust the number of axis ticks, but don't tamper with the
             # diagonal entries.
             if i != j:
-                ax.locator_params(tight=tight, nbins=nbins)
+                ax.locator_params(tight=tight, nbins=tick_nbins)
 
             row.append(ax)
         axs.append(row)
     return fig, axs
 
 # Make scatter plots in the upper triangular entries.
-def plot_scatter(axs, x, undersample=None, s=None):
-
-    # Assemble keyword arguments to pass to scatterR.
-    scatterR_kwargs = {}
-    if s:
-        scatterR_kwargs['s'] = s
-
-    # To undersample, randomly select entries to include in the scatter
-    # plot; the entries that are plotted are the same for every feature
-    # column. Store the entries that will be plotted as an index array to use
-    # later.
-    m = np.ones(len(x[0]), dtype=bool)
-    if undersample:
-        m = np.zeros(len(x[0]), dtype=bool)
-        pts = int(len(x[0]) * undersample)
-        m[:pts] = True
-        np.random.shuffle(m)
+def plot_scatter(axs, x, y=None, categories=None, **kwargs):
 
     it = itertools.combinations(range(len(x)), 2)
     while True:
         try:
             i, j = it.next()
 
-            # Get the ndarrays that we would like to plot.
-            x1, x2 = x[i], x[j]
-            x1, x2 = x1[m], x2[m]
+            # Get the ndarrays that we would like to plot and partition by y
+            x1, x2 = partition_by_labels(x[i], x[j], y, categories)
 
             # Plot scatter plot using scatterR. Note that x2 comes before x1.
-            scatterR(x2, x1, ax=axs[i][j], edgecolor=['gray'], **scatterR_kwargs)
+            scatterR(x2, x1, ax=axs[i][j], **kwargs)
         except StopIteration:
             break
 
 # Annotate the diagonal plots. Simply place the feature name in the center.
-def plot_text(axs, names, name_fontsize):
+def plot_text(axs, names, diag_fontsize):
     if not names:
         return
     for i, name in enumerate(names):
-        axs[i][i].text(0.5, 0.5, name, fontsize=name_fontsize, ha='center', va='center')
+        axs[i][i].text(0.5, 0.5, name, fontsize=diag_fontsize, ha='center', va='center')
 
 # Make pie plots in the lower triangular entries.
 def plot_pie(axs, x):
@@ -106,7 +89,7 @@ def plot_pie(axs, x):
 # This function makes a final pass to make the corrgram plot readable.
 # It is the last plotting function that is called before returning the figure
 # back to the user.
-def format_plot(axs, tick_labelsize=None):
+def format_plot(axs, tick_fontsize=None):
 
     M = len(axs)
     it = itertools.product(range(M), range(M))
@@ -116,8 +99,8 @@ def format_plot(axs, tick_labelsize=None):
             ax = axs[i][j]
 
             # Font size for the tick labels.
-            if tick_labelsize:
-                ax.tick_params(labelsize=tick_labelsize)
+            if tick_fontsize:
+                ax.tick_params(labelsize=tick_fontsize)
 
             # Remove axis and tick labels that get in the way.
             if i == 0 and j != i:
@@ -139,11 +122,12 @@ def format_plot(axs, tick_labelsize=None):
 
 # Main corrgram plotting function.
 def corrgram(x, names,
-             undersample=None,
-             marker_size=None,
-             tight=True, nbins=5,
+             y=None, categories=None,
              figsize=None,
-             name_fontsize=32, tick_labelsize=14):
+             tight=True,
+             diag_fontsize=32,
+             tick_fontsize=14, tick_nbins=5,
+             **kwargs):
     """
     Plot a correlogram of ndarrys in list `x`. This was inspired by a
     similar function in R.
@@ -157,6 +141,12 @@ def corrgram(x, names,
     The lower triagular elements are pie charts that indicates the
     pearson correlation coefficient.
 
+    `y` is a 1D-array with the same length as each element in `x`. Element i
+    in `y` is a label for the ith element in all ndarrays in `x`. When `y` is
+    provided, the scatter plot will be color coded by how `y` partitions the
+    elements in `x`. An additional `categories` parameter decides which labels
+    are actually plotted in the scatter plot.
+
 
     Parameters
     ----------
@@ -166,22 +156,44 @@ def corrgram(x, names,
             be printed in the diagonal elements. If None, the strings in
             `fields` will be printed. Default: None.
 
-    kwargs : Keyword arguments for `corrgram.corrgram`. These include:
-        *figsize*: tuple (default=(10,10)).
-                   Size of the figure to create.
+    y : 1D ndarray that indicates the label for elements in each member of `x`.
+        Default: None.
+
+    categories : If `y` is given, then this is the list of categories that will
+                 actually be displayed in the scatter plot.
+                 Default: None. In this case, display all unique labels in `y`.
+
+    figsize : tuple (default=(10,10)).
+              Size of the figure to create.
+
+    tight : bool (default=True)
+            Whether to make the scatter plot `tight`.
+            See `axes.locator_params`'s `tight`.
+
+    diag_fontsize : int (default=32)
+                    Fontsize of the diagonal text labels.
+
+    tick_nbins : int (default=5)
+            Adjusts number of ticks in the scatter plot.
+            See `axes.locator_params`'s `nbins`.
+
+    tick_fontsize : int (default=14)
+                    Fontsize of the axis tick labels.
+
+    **kwargs : Keyword arguments for scatterR. Notable ones include:
+
         *undersample*: float (default=None).
                        The proportion of points to plot in the scatter plot.
+
         *marker_size*: float (default=None)
-                      Marker size in the scatter plot. Same convention as
-                      pyplot.scatter's *s* parameter.
-        *tight*: bool (default=True)
-                 Whether to make the scatter plot `tight`. See `axes.locator_params`.
-        *nbins*: int (default=5)
-                 Adjusts number of ticks in the scatter plot. See `axes.locator_params`.
-        *name_fontsize*: int (default=32)
-                 Fontsize of the diagonal text labels.
-        *tick_labelsize*: int (default=14)
-                 Fontsize of the axis tick labels.
+                       Marker size in the scatter plot. Same convention as
+                       pyplot.scatter's *s* parameter.
+
+        *linewidth* : Linewidth for the marker circle. Default: 1.7.
+
+        *edgecolor* : Marker line color. Default: None, which is the color rotation set
+                      by this module; gray for a single cluster, default color wheel
+                      otherwise.
 
     Returns
     -------
@@ -193,33 +205,29 @@ def corrgram(x, names,
     """
 
     # Create the plotting area.
-    fig, axs = create_plotting_area(len(x), figsize=figsize, tight=tight, nbins=nbins)
+    fig, axs = create_plotting_area(len(x), figsize=figsize, tight=tight, tick_nbins=tick_nbins)
 
     # Make scatter plots.
-    plot_scatter(axs, x, undersample, s=marker_size)
+    plot_scatter(axs, x, y=y, categories=categories, **kwargs)
 
     # Annotate the diagonals.
-    plot_text(axs, names, name_fontsize)
+    plot_text(axs, names, diag_fontsize)
 
     # Make the pie charts.
     plot_pie(axs, x)
 
     # Format the plot to make the corrgram readable.
-    format_plot(axs, tick_labelsize)
+    format_plot(axs, tick_fontsize)
 
     return fig, axs
 
 # Wrapper for corrgram. Used for structured arrays.
-def corrgramR(X, fields=None, names=None, **kwargs):
+def corrgramR(X, fields=None, alias=None, **kwargs):
     """
-    Plot a correlogram of a structured array. This was inspired by a
-    similar function in R. This is really a wrapper for `corrgram.corrgram`.
+    This wraps corrgram for more convenient use with structured arrays.
 
     This takes the structured array `X` and the field names specified in
-    `fields` to make a grid of plots. The upper triagular elements are
-    scatterplots between each pair of fields. The diagonal specifies the
-    field names that are being plotted. The lower triagular elements are
-    pie charts that indicates the pearson correlation coefficient.
+    `fields` as a list of features to feed into corrgram.
 
 
     Parameters
@@ -230,26 +238,36 @@ def corrgramR(X, fields=None, names=None, **kwargs):
              will be plotted in the corrgram. If None, then all fields are
              plotted. Default: None.
 
-    names : List of strings. These are aliases of the field names that will
+    alias : List of strings. These are aliases of the field names that will
             be printed in the diagonal elements. If None, the strings in
             `fields` will be printed. Default: None.
 
-    kwargs : Keyword arguments for `corrgram.corrgram`. These include:
+    kwargs : Keyword arguments for `corrgram.corrgram` and `scatterR`. The
+             notable ones are listed below:
+
         *figsize*: tuple (default=(10,10)).
                    Size of the figure to create.
+
+        *tight*: bool (default=True)
+                 Whether to make the scatter plot `tight`.
+                 See `axes.locator_params`'s `tight`.
+
+        *diag_fontsize*: int (default=32)
+                 Fontsize of the diagonal text labels.
+
+        *tick_nbins*: int (default=5)
+                 Adjusts number of ticks in the scatter plot.
+                 See `axes.locator_params`'s `nbins`.
+
+        *tick_fontsize*: int (default=14)
+                 Fontsize of the axis tick labels.
+
         *undersample*: float (default=None).
                        The proportion of points to plot in the scatter plot.
+
         *markersize*: float (default=None)
                       Marker size in the scatter plot. Same convention as
                       pyplot.scatter's *s* parameter.
-        *tight*: bool (default=True)
-                 Whether to make the scatter plot `tight`. See `axes.locator_params`.
-        *nbins*: int (default=5)
-                 Adjusts number of ticks in the scatter plot. See `axes.locator_params`.
-        *name_fontsize*: int (default=32)
-                 Fontsize of the diagonal text labels.
-        *tick_labelsize*: int (default=14)
-                 Fontsize of the axis tick labels.
 
     Returns
     -------
@@ -268,33 +286,32 @@ def corrgramR(X, fields=None, names=None, **kwargs):
         x.append(X[f])
 
     # Use the aliases if available
-    if not names:
-        names = fields
+    if not alias:
+        alias = fields
 
     # Call corrgram.
-    fig, axs = corrgram(x, names, **kwargs)
+    fig, axs = corrgram(x, alias, **kwargs)
 
     return fig, axs
 
 if __name__ == '__main__':
 
-    #(x1, y1) = np.random.normal(3, 1, 500), np.random.normal(3, 4, 500)
     #x1 = np.random.normal(10, 1, 100)
     #x2 = np.random.normal(0, 0.25, 100)
     #x3 = np.random.normal(-10, 2, 100)
     #x4 = np.random.normal(100, 2, 100)
+    #y = np.random.choice([0, 1, 2, 3], 100)
     #x = [ x1, x2, x3, x4 ]
     #names = [ r'$x_1$', r'$x_2$', r'$x_3$', r'$x_4$' ]
-    #fig, axs = corrgram(x, names, undersample=0.7, tight=False, nbins=7, marker_size=10)
-    #plt.show()
+    #fig, axs = corrgram(x, names, y=y, tight=False, tick_nbins=10, tick_fontsize=8,
+    #                    undersample=0.5)
 
     X = np.genfromtxt('datasets/winequality-red.csv', delimiter=';', names=True)
-    #fig, axs = corrgramR(X, ['fixed_acidity', 'citric_acid', 'alcohol'], undersample=0.1, tight=True)
-    #fig, axs = corrgramR(X, figsize=(20, 10), undersample=0.1,
-    #                     tight=True, name_fontsize=10, tick_labelsize=10,
-    #                     marker_size=10)
+    Y = X['quality']
     fig, axs = corrgramR(X,
                          fields=['fixed_acidity', 'citric_acid', 'alcohol'],
-                         names=['fixed acidity', 'citric acid', 'alcohol'],
-                         undersample=0.01, tight=True)
+                         alias=['fixed acidity', 'citric acid', 'alcohol'],
+                         y=Y, categories=[7, 8],
+                         undersample=[0.1, None], tight=True)
+
     plt.show()
