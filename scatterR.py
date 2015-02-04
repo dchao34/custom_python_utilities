@@ -36,11 +36,11 @@ def scatterR(x1, x2, undersample=None,
              xlabel=None, ylabel=None, title=None,
              axislabel_fontsize=20):
     """
-    This is a wrapper pyplot.scatter, but limits/extends its functionality
+    This is a wrapper for pyplot.scatter, but limits/extends its functionality
     to those that are relevant for cluster visualization.
 
     x1 and x2 are the two features that are plotted against each other. To
-    plot a single cluster, simply provid 1D ndarrays for x1 and x2. To plot
+    plot a single cluster, simply provide 1D ndarrays for x1 and x2. To plot
     multiple clusters, provide lists of 1D ndarrays, where each element
     corresponds to one cluster.
 
@@ -124,16 +124,16 @@ def rec_scatterR(X, Y,
                  categories=None,
                  **kwargs):
     """
-    This is a wrapper for scatterR for structured arrays.
+    This is a convenience wrapper for using scatterR with structured arrays.
 
     Given a structured array X and 1D ndarray Y with category labels,
     make a scatter plot that contains one cluster for each specified category.
 
     Parameters
     ----------
-    X : Structured ndarray.
+    X : Structured ndarray. It contains any number of named columns.
 
-    Y : 1D ndarray. Element j contains the categorical label for row j in X.
+    Y : 1D ndarray. Element j contains the category label for row j in X.
 
     feature1_name : The field entry name in X that should be the first
                     feature axis in the scatter plot.
