@@ -35,7 +35,9 @@ def scatterR(x1, x2, undersample=None,
              marker_size=80, linewidth=1.7,
              edgecolor=None, facecolor='none',
              xlabel=None, ylabel=None, title=None,
-             axislabel_fontsize=20):
+             axislabel_fontsize=20,
+             legend=False, legend_names=None,
+             legend_loc=None, legend_ncol=None, legend_fontsize=20):
     """
     This is a wrapper for pyplot.scatter, but limits/extends its functionality
     to those that are relevant for cluster visualization.
@@ -83,6 +85,20 @@ def scatterR(x1, x2, undersample=None,
 
     axislabel_fontsize: Fontsize of axis tick label. Default: 20.
 
+    legend : Whether to include a legend. Default: False.
+
+    legend_names : List of strings. Element i corresonds to the legend text
+                   for item i in x1 and x2. Default: None, which gets converted to
+                   numbers, one for each category.
+
+    legend_loc : Legend location; same as *loc* keyword argument for pyplot.legend().
+                 Default: None, which is 'best'.
+
+    legend_ncol : Number of columns in the legend; same as *ncol* keyword argument for
+                  pyplot.legend(). Default: 1.
+
+    legend_fontsize : Legend fontsize. Default: 20.
+
     Returns
     -------
     This function does not return anything.
@@ -91,7 +107,9 @@ def scatterR(x1, x2, undersample=None,
     """
 
     # Get Axes object and add labels.
-    if not ax: ax = format_axes(plt.gca())
+    if not ax:
+        ax = format_axes(plt.gca())
+        ax.autoscale(tight=True)
     if xlabel: ax.set_xlabel(xlabel, fontsize=axislabel_fontsize)
     if ylabel: ax.set_ylabel(ylabel, fontsize=axislabel_fontsize)
     if title: ax.set_title(title, fontsize=axislabel_fontsize)
@@ -112,6 +130,7 @@ def scatterR(x1, x2, undersample=None,
         if not isinstance(edgecolor, (list, tuple)): edgecolor = [ edgecolor ]
 
     # Iteratively plot each category
+    legend_handles = []
     for i in range(len(x1)):
 
         x1_i, x2_i = x1[i], x2[i]
@@ -121,10 +140,20 @@ def scatterR(x1, x2, undersample=None,
         x1_i, x2_i = x1_i[m], x2_i[m]
 
         # Use pyplot.scatter to plot.
-        ax.scatter(x1_i, x2_i,
-                   s=marker_size, linewidth=linewidth,
-                   facecolor=facecolor,
-                   edgecolor=edgecolor[i % len(edgecolor)])
+        handle = ax.scatter(x1_i, x2_i,
+                            s=marker_size, linewidth=linewidth,
+                            facecolor=facecolor,
+                            edgecolor=edgecolor[i % len(edgecolor)])
+        legend_handles.append(handle)
+
+    # Build legend
+    if legend:
+        if legend_names is None: legend_names = map(str, range(len(x1)))
+        if legend_loc is None: legend_loc = 'best'
+        if legend_ncol is None: legend_ncol = len(x1)
+        ax.legend(legend_handles, legend_names,
+                  loc=legend_loc, ncol=legend_ncol,
+                  scatterpoints=1, fontsize=legend_fontsize)
 
 # Partition x1, x2 by Y.
 #
@@ -208,6 +237,21 @@ def rec_scatterR(X, feature1_name, feature2_name,
 
     *axislabel_fontsize* : Fontsize of axis tick label. Default: 20.
 
+    *legend* : Whether to include a legend. Default: False.
+
+    *legend_names* : List of strings. Element i corresonds to the legend text
+                   for item i in x1 and x2. In this case, should have the same number of
+                   elements as `categories.
+                   Default: None, which gets converted to numbers, one for each category.
+
+    *legend_loc* : Legend location; same as *loc* keyword argument for pyplot.legend().
+                 Default: None, which is 'best'.
+
+    *legend_ncol* : Number of columns in the legend; same as *ncol* keyword argument for
+                  pyplot.legend(). Default: None, which converts to the number of categories.
+
+    *legend_fontsize* : Legend fontsize. Default: 20.
+
     Returns
     -------
     This function does not return anything.
@@ -237,5 +281,7 @@ if __name__ == "__main__":
     scatterR([x1, x2, x3, x4, x5],
              [y1, y2, y3, y4, y5],
              undersample=[0.1, 0.1, None, 0.2, None],
-             ax=ax, xlabel='feature 1', ylabel='feature 2')
+             ax=ax, xlabel='feature 1', ylabel='feature 2',
+             legend=True, legend_names=['zero', 'one', 'two', 'three', 'four'],
+             legend_ncol=5, legend_loc='lower right', legend_fontsize=12)
     plt.show()

@@ -245,6 +245,13 @@ def corrgramR(X, fields=None, alias=None, **kwargs):
     kwargs : Keyword arguments for `corrgram.corrgram` and `scatterR`. The
              notable ones are listed below:
 
+        *y* : 1D ndarray that indicates the label for elements in each member of `x`.
+              Default: None.
+
+        *categories* : If `y` is given, then this is the list of categories that will
+                       actually be displayed in the scatter plot.
+                       Default: None. In this case, display all unique labels in `y`.
+
         *figsize*: tuple (default=(10,10)).
                    Size of the figure to create.
 
@@ -265,7 +272,7 @@ def corrgramR(X, fields=None, alias=None, **kwargs):
         *undersample*: float (default=None).
                        The proportion of points to plot in the scatter plot.
 
-        *markersize*: float (default=None)
+        *marker_size*: float (default=None)
                       Marker size in the scatter plot. Same convention as
                       pyplot.scatter's *s* parameter.
 
