@@ -4,6 +4,8 @@ import scipy
 from scipy import interpolate
 from plot_format import create_single_figure, format_axes
 
+spline_color_single = [ '#000000' ]
+hist_color_single = [ 'gray' ]
 spline_color_wheel = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
 hist_color_wheel = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
 
@@ -187,27 +189,34 @@ def hist2(x, show_spline=False,
 
     # Spline
     if show_spline:
-        weights = None
-        if 'weights' in kwargs: weights = kwargs['weights']
-        if isinstance(weights, np.ndarray): weights = [ weights ]
-        if weights is None: weights = [ None ] * len(x)
-
-        normed = False
-        if 'normed' in kwargs: normed = kwargs['normed']
 
         stacked = False
         if 'stacked' in kwargs: stacked = kwargs['stacked']
 
-        if knots_spline is None: knots_spline = 10
-        if not isinstance(knots_spline, (list, tuple)):
-            knots_spline = [ knots_spline ] * len(x)
+        normed = False
+        if 'normed' in kwargs: normed = kwargs['normed']
 
+        weights = None
+        if 'weights' in kwargs: weights = kwargs['weights']
+        if isinstance(weights, np.ndarray): weights = [ weights ]
+
+        if knots_spline is None: knots_spline = 10
         if neval_spline is None: neval_spline = 1000
         if lw_spline is None: lw_spline = 2.0
-        if spline_colors is None: spline_colors = spline_color_wheel
 
-        for i, (x_i, knots_i, w_i) in enumerate(zip(x, knots_spline, weights)):
-            spline, xmin_sp, xmax_sp, bwidth_sp= spline_hist2(x_i, knots_i, w_i)
+        if stacked:
+            x = np.concatenate(x)
+
+            if weights is not None: weights = np.concatenate(weights)
+
+            if isinstance(knots_spline, (list, tuple)):
+                knots_spline = min(knots_spline)
+
+            if spline_colors is None: spline_colors = spline_color_single
+            if isinstance(spline_colors, (list, tuple)):
+                if len(spline_colors) > 1: spline_colors = spline_color_single
+
+            spline, xmin_sp, xmax_sp, bwidth_sp = spline_hist2(x, knots_spline, weights)
             x_sp = np.linspace(xmin_sp, xmax_sp, neval_spline)
             if normed:
                 normalization = spline.integral(xmin_sp, xmax_sp)
@@ -216,6 +225,25 @@ def hist2(x, show_spline=False,
                 normalization = bwidth_sp / hist_bwidth
             ax.plot(x_sp, spline(x_sp) / normalization,
                     lw=lw_spline, color=spline_colors[i % len(spline_colors)] )
+
+        else:
+            if weights is None: weights = [ None ] * len(x)
+
+            if not isinstance(knots_spline, (list, tuple)):
+                knots_spline = [ knots_spline ] * len(x)
+
+            if spline_colors is None: spline_colors = spline_color_wheel
+
+            for i, (x_i, knots_i, w_i) in enumerate(zip(x, knots_spline, weights)):
+                spline, xmin_sp, xmax_sp, bwidth_sp= spline_hist2(x_i, knots_i, w_i)
+                x_sp = np.linspace(xmin_sp, xmax_sp, neval_spline)
+                if normed:
+                    normalization = spline.integral(xmin_sp, xmax_sp)
+                else:
+                    hist_bwidth = bin_edges[1] - bin_edges[0]
+                    normalization = bwidth_sp / hist_bwidth
+                ax.plot(x_sp, spline(x_sp) / normalization,
+                        lw=lw_spline, color=spline_colors[i % len(spline_colors)] )
 
     ax.set_ylim(0)
 
@@ -229,11 +257,13 @@ if __name__ == "__main__":
     weight2 = 5.0 * np.ones(1000)
 
     fig, ax = create_single_figure()
-    hist2([data1, data2], weights=[weight1, weight2],
-          knots_spline=15, show_spline=True,
-          bins=10, stacked=True, normed=False)
-    #hist2([data1, data2], weights=None, bins=10, stacked=False)
-    #hist2([data1, data2], bins=10, stacked=False)
+    #hist2([data1, data2], weights=[weight1, weight2],
+    #      knots_spline=10, show_spline=True,
+    #      bins=20, stacked=False, normed=False)
+    #hist2([data1, data2], weights=None, bins=10, show_spline=True,
+    #      stacked=True, normed=True)
+    hist2([data1, data2], bins=10, show_spline=True, spline_colors=['blue'],
+          stacked=True, normed=False)
     #hist2(data1, weights=weight2, lw=None)
     #hist2(data1, weights=None, lw=None)
     #hist2(data1, lw=None)
