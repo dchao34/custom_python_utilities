@@ -95,7 +95,7 @@ def scatterR(x1, x2, undersample=None,
                  Default: None, which is 'best'.
 
     legend_ncol : Number of columns in the legend; same as *ncol* keyword argument for
-                  pyplot.legend(). Default: 1.
+                  pyplot.legend(). Default: One column for each category.
 
     legend_fontsize : Legend fontsize. Default: 20.
 

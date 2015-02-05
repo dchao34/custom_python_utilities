@@ -29,20 +29,107 @@ def spline_hist(x_arr, bins, w_arr):
     return spline, edges_m[0], edges_m[-1], bwidths[0]
 
 
-def histR(x, show_hist=True, show_spline=False,
-          knots_spline=None, neval_spline=None,
+def histR(x,
+          show_hist=True, show_spline=False, knots_spline=None,
           hist_colors=None, spline_colors=None,
-          lw_spline=None,
+          lw_spline=None, neval_spline=None,
+          xlabel=None, ylabel=None, title=None,
+          axislabel_fontsize=20,
+          legend=False, legend_names=None,
+          legend_loc=None, legend_ncol=None, legend_fontsize=20,
           ax=None, **kwargs):
     """
-    hist_colors : List of strings.
+    This is a wrapper for Axes.hist, but limits/extends its functionality
+    to those that are relevant for counting and density visualization.
+
+    This function uses the native functions of Axes.hist, but extends it to
+    also plot a spline that gives an approximation to the density estimate.
+
+
+    Parameters
+    ----------
+    x : (n,) ndarray or a list of (n,) ndarrays. This is the same as convention
+        used in Axes.hist.
+
+    **kwargs : Same as those in Axes.hist. Notable ones are:
+
+        *weights* : Weights for the data points in x.
+                    Default: None.
+
+        *bins* : Number of bins for the histogram.
+                 Default: 10.
+
+        *normed* : Whether to normalize the histogram. If True, the spline
+                   will also be normalized.
+                   Default: False.
+
+        *stacked* : Whether to stack the histogram. If True, the spline
+                    will trace the overall result.
+                    Default: False.
+
+    show_hist: Bool. Whether to display the histogram. Default: True.
+
+    show_spline: Bool. Whether to display the spline. When show_hist=True,
+                 the spline hugs the histogram outline. When show_hist=False, the
+                 spline integrates to the weighted counts of the input data.
+                 Default: False.
+
+    knots_spline: Float or a list of floats. This adjust the coarseness of the spline
+                  interpolation. It is the same as the number of bins used to determine
+                  the knot locations in the spline computation. Specify a list if you
+                  want to adjust each spline component separately.
+                  Default: 10
+
+    lw_spline : Linewidth of the splines. Default: 2.0.
+
+    hist_colors : List of strings. This is the color rotation used for the histograms.
+
+    spline_colors : List of strings. This is the color rotation used for the splines.
+
+    ax : This is the axes to which the drawing is directed.
+         Default: None, which converts to pyplot.gca().
+
+    neval_spline: Int. The number of points to evaluate the spline for display.
+                  Default: 1000
+
+    xlabel : X axis label.
+
+    ylabel : Y axis label.
+
+    title : Plot title.
+
+    axislabel_fontsize: Fontsize of axis tick label. Default: 20.
+
+    legend : Whether to include a legend.
+             Default: False.
+
+    legend_names : List of strings. Element i corresonds to component i of the
+                   histogram. Default: None, which gets converted to
+                   numbers, one for each category.
+
+    legend_loc : Legend location; same as *loc* keyword argument for pyplot.legend().
+                 Default: None, which is 'best'.
+
+    legend_ncol : Number of columns in the legend; same as *ncol* keyword argument for
+                  pyplot.legend(). Default: 1.
+
+    legend_fontsize : Legend fontsize. Default: 20.
+
+    Returns
+    -------
+    This function does not return anything.
+    (In contrast to the original `pyplot.scatter()` function)
+
     """
 
     # Initial configurations
     # ----------------------
 
-    # If no Axes is given, use plt.gca() and give it a standard look
+    # Get Axes object and add labels.
     if ax is None: ax = format_axes(plt.gca())
+    if xlabel: ax.set_xlabel(xlabel, fontsize=axislabel_fontsize)
+    if ylabel: ax.set_ylabel(ylabel, fontsize=axislabel_fontsize)
+    if title: ax.set_title(title, fontsize=axislabel_fontsize)
 
     # Always handle input data as a list of ndarrays
     if isinstance(x, np.ndarray): x = [ x ]
@@ -64,6 +151,10 @@ def histR(x, show_hist=True, show_spline=False,
     # display the matching with the histogram correctly.
     bwidth_hist = 1
 
+    # Need the max histogram count to adjust the Axes's ylimits.
+    hist_ymax = 0
+
+    hist_legend_handles = []
     if show_hist:
 
         # Configure histogram patch colors. If no colors were explicitly given,
@@ -83,15 +174,27 @@ def histR(x, show_hist=True, show_spline=False,
 
         # Adjust the line color of the histogram patches.
         if isinstance(hist_counts[0], np.ndarray):
-            for patch_list in hist_patches:
+            for i, patch_list in enumerate(hist_patches):
                 for patch in patch_list: patch.set_ec('white')
+                hist_legend_handles.append(hist_patches[i][0])
         else:
             for patch in hist_patches: patch.set_ec('white')
+            hist_legend_handles.append(hist_patches[0])
+
+        # Get maximum histogram count
+        if isinstance(hist_counts[0], np.ndarray):
+            hist_ymax = max([ np.max(hcts) for hcts in hist_counts ])
+        else:
+            hist_ymax = np.max(hist_counts)
 
 
     # Plot Spline
     # -----------
 
+    # Need the max spline y-coordinate to adjust the Axes's ylimits.
+    spline_ymax = 0
+
+    spline_legend_handles = []
     if show_spline:
 
         # General configuration for splines.
@@ -153,8 +256,11 @@ def histR(x, show_hist=True, show_spline=False,
 
             # Plot the spline
             x_sp = np.linspace(xmin_sp, xmax_sp, neval_spline)
-            ax.plot(x_sp, spline(x_sp) / normalization,
-                    lw=lw_spline, color=spline_colors[0] )
+            y_sp = spline(x_sp) / normalization
+            lines = ax.plot(x_sp, y_sp,
+                            lw=lw_spline, color=spline_colors[0] )
+            spline_legend_handles.append(lines[0])
+            spline_ymax = np.max(y_sp)
 
         # For non-stacked histograms, the spline should interpolate each
         # constituent separately.
@@ -192,10 +298,39 @@ def histR(x, show_hist=True, show_spline=False,
 
                 # Plot the spline
                 x_sp = np.linspace(xmin_sp, xmax_sp, neval_spline)
-                ax.plot(x_sp, spline(x_sp) / normalization,
-                        lw=lw_spline, color=spline_colors[i % len(spline_colors)] )
+                y_sp = spline(x_sp) / normalization
+                lines = ax.plot(x_sp, y_sp,
+                                lw=lw_spline, color=spline_colors[i % len(spline_colors)] )
+                spline_legend_handles.append(lines[0])
+                spline_ymax = max(np.max(y_sp), spline_ymax)
 
-    ax.set_ylim(0)
+    ax.set_ylim(0, 1.05 * max(hist_ymax, spline_ymax))
+
+    # Build legend
+    if legend:
+
+        # General configurations
+        if legend_loc is None: legend_loc = 'best'
+        if legend_ncol is None: legend_ncol = 1
+        if legend_names is None: legend_names = map(str, range(len(x)))
+
+
+        # When show_hist is on, just use the histogram handles. The stacked
+        # spline will also not be present in the legend.
+        legend_handles = []
+        if show_hist:
+            legend_handles = hist_legend_handles
+
+        # When show_hist is off, use the spline handles. If stacked=True, then
+        # we need to coerce the legend to a single entry.
+        else:
+            legend_handles = spline_legend_handles
+            if stacked:
+                legend_names = [ 'stacked spline' ]
+
+        ax.legend(legend_handles, legend_names,
+                    loc=legend_loc, ncol=legend_ncol,
+                    fontsize=legend_fontsize)
 
     return
 
@@ -206,32 +341,36 @@ if __name__ == "__main__":
     weight1 = np.ones(1000)
     weight2 = 5.0 * np.ones(1000)
 
-    fig = plt.figure(figsize=(20,10))
-    ax1 = format_axes(fig.add_subplot(221))
-    histR([data1, data2], ax=ax1,
-          weights =[weight1, weight2],
-          show_spline=True, show_hist=True,
-          bins=30, stacked=False, normed=False)
-    ax2 = format_axes(fig.add_subplot(222))
-    histR([data1, data2], ax=ax2,
-          weights =[weight1, weight2],
-          show_spline=True, show_hist=True,
-          bins=30, stacked=False, normed=True)
-    ax3 = format_axes(fig.add_subplot(223))
-    histR([data1, data2], ax=ax3,
-          weights =[weight1, weight2],
-          show_spline=True, show_hist=True,
-          bins=30, stacked=True, normed=False)
-    ax4 = format_axes(fig.add_subplot(224))
-    histR([data1, data2], ax=ax4,
-          weights =[weight1, weight2],
-          show_spline=True, show_hist=True,
-          bins=30, stacked=True, normed=True)
+    #fig = plt.figure(figsize=(20,10))
+    #ax1 = format_axes(fig.add_subplot(221))
+    #histR([data1, data2], ax=ax1,
+    #      weights =[weight1, weight2],
+    #      show_spline=True, show_hist=True,
+    #      bins=30, stacked=False, normed=False)
+    #ax2 = format_axes(fig.add_subplot(222))
+    #histR([data1, data2], ax=ax2,
+    #      weights =[weight1, weight2],
+    #      show_spline=True, show_hist=True,
+    #      bins=30, stacked=False, normed=True)
+    #ax3 = format_axes(fig.add_subplot(223))
+    #histR([data1, data2], ax=ax3,
+    #      weights =[weight1, weight2],
+    #      show_spline=True, show_hist=True,
+    #      bins=30, stacked=True, normed=False)
+    #ax4 = format_axes(fig.add_subplot(224))
+    #histR([data1, data2], ax=ax4,
+    #      weights =[weight1, weight2],
+    #      show_spline=True, show_hist=True,
+    #      bins=30, stacked=True, normed=True)
 
-    #fig, ax = create_single_figure()
-    #histR([data1, data2], weights=[weight1, weight2],
-    #      knots_spline=10, show_spline=True,
-    #      bins=20, stacked=True, normed=False)
+    fig, ax = create_single_figure()
+    histR([data1, data2], weights=[weight1, weight2],
+          knots_spline=10,
+          show_hist=True, show_spline=True,
+          bins=20, stacked=False, normed=False,
+          xlabel='Feature', ylabel='Counts', title='Stacked',
+          legend=True, legend_names=['label1', 'label2'])
+
     #histR([data1, data2], weights=None, bins=10, show_spline=True,
     #      stacked=True, normed=True)
     #histR([data1, data2], bins=10, show_spline=True, spline_colors=['blue'],
