@@ -1,12 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-from scipy import constants
 from scipy import interpolate
-from plot_format import create_single_figure
+from plot_format import create_single_figure, format_axes
 
-hist_color = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
-spline_color = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
+spline_color_wheel = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
+hist_color_wheel = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
 
 
 def freedman_diaconis(arr):
@@ -142,14 +141,108 @@ def histR(arr, weights=None, ax=None,
 
     return
 
+def spline_hist2(x_arr, bins, w_arr):
+
+    # Make a histogram out of x_arr as a reference for the spline knots.
+    values, edges = np.histogram(x_arr, bins=bins, weights=w_arr)
+
+    # Compute the knot location of the splines.
+    bwidths = np.ediff1d(edges)
+    edges_m = np.array([edges[0] - bwidths[0] / 2] +
+                       (edges[0:-1] + bwidths / 2).tolist() +
+                       [edges[-1] + bwidths[-1] / 2])
+    values_m = np.array([0] + values.tolist() + [0])
+
+    # Interpolate the spline.
+    spline = interpolate.UnivariateSpline(edges_m, values_m, k=3, ext=1, s=0)
+
+    # Return the spline itself, and the domain where the spline is defined.
+    return spline, edges_m[0], edges_m[-1], bwidths[0]
+
+
+def hist2(x, show_spline=False,
+          knots_spline=None, neval_spline=None,
+          hist_colors=None, spline_colors=None,
+          lw_spline=None,
+          ax=None, **kwargs):
+
+    if ax is None: ax = format_axes(plt.gca())
+
+    # Histogram
+    if isinstance(x, np.ndarray): x = [ x ]
+
+    if hist_colors is None:
+        hist_colors = [ hist_color_wheel[ i % len(hist_color_wheel) ]
+                        for i in range(len(x)) ]
+    kwargs['color'] = hist_colors
+    if 'rwidth' not in kwargs: kwargs['rwidth'] = 1
+
+    values_list, bin_edges, patches_list = ax.hist(x, **kwargs)
+
+    if not isinstance(values_list[0], np.ndarray):
+        patches_list, values_list = [ patches_list ], [ values_list ]
+    for patches in patches_list:
+        for p in patches: p.set_ec('white')
+        #for p in patches: p.remove()
+
+    # Spline
+    if show_spline:
+        weights = None
+        if 'weights' in kwargs: weights = kwargs['weights']
+        if isinstance(weights, np.ndarray): weights = [ weights ]
+        if weights is None: weights = [ None ] * len(x)
+
+        normed = False
+        if 'normed' in kwargs: normed = kwargs['normed']
+
+        stacked = False
+        if 'stacked' in kwargs: stacked = kwargs['stacked']
+
+        if knots_spline is None: knots_spline = 10
+        if not isinstance(knots_spline, (list, tuple)):
+            knots_spline = [ knots_spline ] * len(x)
+
+        if neval_spline is None: neval_spline = 1000
+        if lw_spline is None: lw_spline = 2.0
+        if spline_colors is None: spline_colors = spline_color_wheel
+
+        for i, (x_i, knots_i, w_i) in enumerate(zip(x, knots_spline, weights)):
+            spline, xmin_sp, xmax_sp, bwidth_sp= spline_hist2(x_i, knots_i, w_i)
+            x_sp = np.linspace(xmin_sp, xmax_sp, neval_spline)
+            if normed:
+                normalization = spline.integral(xmin_sp, xmax_sp)
+            else:
+                hist_bwidth = bin_edges[1] - bin_edges[0]
+                normalization = bwidth_sp / hist_bwidth
+            ax.plot(x_sp, spline(x_sp) / normalization,
+                    lw=lw_spline, color=spline_colors[i % len(spline_colors)] )
+
+    ax.set_ylim(0)
+
+    return
+
 if __name__ == "__main__":
 
     data1 = np.random.normal(-5, 4, 1000)
     data2 = np.random.normal(5, 4, 1000)
-    fig = plt.figure(figsize=(6 * constants.golden, 6))
-    ax = fig.add_subplot(111)
-    histR([data1, data2], ax=ax,
-          bins=20, spline_bins=[10, 10],
-          xlabel=r"Feature (Units)", ylabel='Counts')
+    weight1 = np.ones(1000)
+    weight2 = 5.0 * np.ones(1000)
+
+    fig, ax = create_single_figure()
+    hist2([data1, data2], weights=[weight1, weight2],
+          knots_spline=15, show_spline=True,
+          bins=10, stacked=True, normed=False)
+    #hist2([data1, data2], weights=None, bins=10, stacked=False)
+    #hist2([data1, data2], bins=10, stacked=False)
+    #hist2(data1, weights=weight2, lw=None)
+    #hist2(data1, weights=None, lw=None)
+    #hist2(data1, lw=None)
+
+
+    #fig = plt.figure(figsize=(6 * constants.golden, 6))
+    #ax = fig.add_subplot(111)
+    #histR([data1, data2], ax=ax,
+    #      bins=20, spline_bins=[10, 10],
+    #      xlabel=r"Feature (Units)", ylabel='Counts')
     plt.show()
 
