@@ -195,9 +195,9 @@ def partition_by_labels(x1, x2, Y=None, categories=None):
     return x1_list, x2_list
 
 # Wrapper for scatterR for structured arrays.
-def rec_scatterR(X, feature1_name, feature2_name,
-                 Y=None, categories=None,
-                 **kwargs):
+def scatterRec(X, feature1_name, feature2_name,
+               Y=None, categories=None,
+               **kwargs):
     """
     This is a convenience wrapper for using scatterR with structured arrays.
 
@@ -214,8 +214,10 @@ def rec_scatterR(X, feature1_name, feature2_name,
     feature2_name : The field entry name in X that should be the second
                     feature axis in the scatter plot.
 
-    Y : 1D ndarray. Element j contains the category label for row j in X.
-        Default: None. This treats everything as a single category.
+    Y : String or 1D ndarray. If string, the category of each record is assumed
+        to be under the given field name. If an ndarray, it should have the same
+        length as the structured array where element i is the category label for
+        the ith record. Default: None. Treat everything as a single category.
 
     categories : If Y is given, then this is the list of categories to be included
                  in the scatter plot. The entries in this list must be an existing
@@ -263,6 +265,7 @@ def rec_scatterR(X, feature1_name, feature2_name,
     x1, x2 = X[feature1_name], X[feature2_name]
 
     # Partition by labels
+    if isinstance(Y, str): Y = X[Y]
     x1_list, x2_list = partition_by_labels(x1, x2, Y, categories)
 
     # Plot by partitions

@@ -222,7 +222,7 @@ def corrgram(x, names,
     return fig, axs
 
 # Wrapper for corrgram. Used for structured arrays.
-def corrgramR(X, fields=None, alias=None, **kwargs):
+def corrgramRec(X, fields=None, Y=None, alias=None, **kwargs):
     """
     This wraps corrgram for more convenient use with structured arrays.
 
@@ -237,6 +237,11 @@ def corrgramR(X, fields=None, alias=None, **kwargs):
     fields : List of strings. These are the names of the fields in `X` that
              will be plotted in the corrgram. If None, then all fields are
              plotted. Default: None.
+
+    Y : String or 1D ndarray. If string, the category of each record is assumed
+        to be under the given field name. If an ndarray, it should have the same
+        length as the structured array where element i is the category label for
+        the ith record. Default: None. Treat everything as a single category.
 
     alias : List of strings. These are aliases of the field names that will
             be printed in the diagonal elements. If None, the strings in
@@ -291,6 +296,9 @@ def corrgramR(X, fields=None, alias=None, **kwargs):
         fields = X.dtype.names
     for f in fields:
         x.append(X[f])
+
+    if isinstance(Y, str): Y = X[Y]
+    kwargs['y'] = Y
 
     # Use the aliases if available
     if not alias:
