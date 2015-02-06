@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from plot_format import create_single_figure, format_axes
+from plot_format import create_single_figure, format_axes, hastie_colors
 
 # Default scatter plot color scheme
 color_single = [ 'gray' ]
-color_wheel = [ '#53ACCA', '#FFC466', '#FFAAAA', '#98D68E', '#CE89BE']
+color_wheel = hastie_colors
 
 # Create a mask to indicate which array elements should be included in the
 # subsampling.

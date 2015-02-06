@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 from scipy import interpolate
-from plot_format import create_single_figure, format_axes
+from plot_format import create_single_figure, format_axes, hastie_colors
 
-spline_color_wheel = [ '#088F8F', '#D46A6A', '#EFA30D', '#314577', '#DADA6D', '#8D3066', '#3F9232' ]
-hist_color_wheel = [ '#47ABAB', '#FFAAAA', '#FFCE6B', '#7C8BB0', '#FFFFAA', '#CE89BE', '#98D68E' ]
+spline_color_wheel = hastie_colors
+hist_color_wheel = hastie_colors
 
 
 # Compute the spline. The course-ness is adjusted using the number of bins used
@@ -31,6 +31,7 @@ def spline_hist(x_arr, bins, w_arr):
 
 def histR(x,
           show_hist=True, show_spline=False, knots_spline=None,
+          x_display_range=None,
           hist_colors=None, spline_colors=None,
           lw_spline=None, neval_spline=None,
           xlabel=None, ylabel=None, title=None,
@@ -79,6 +80,9 @@ def histR(x,
                   the knot locations in the spline computation. Specify a list if you
                   want to adjust each spline component separately.
                   Default: 10
+
+    x_display_range : Tuple. This is the range on the x-axis for which to display the
+                      results. It feeds directly into Axes.set_xlim(). Default: None.
 
     lw_spline : Linewidth of the splines. Default: 2.0.
 
@@ -304,6 +308,8 @@ def histR(x,
                 spline_legend_handles.append(lines[0])
                 spline_ymax = max(np.max(y_sp), spline_ymax)
 
+    # Set the display ranges
+    ax.set_xlim(x_display_range)
     ax.set_ylim(0, 1.05 * max(hist_ymax, spline_ymax))
 
     # Build legend
@@ -333,6 +339,143 @@ def histR(x,
                     fontsize=legend_fontsize)
 
     return
+
+
+def partition_by_labels(x, w, Y=None, categories=None):
+
+    x_list, w_list = [], []
+
+    # If no Y is given, return a single partition containing all elements.
+    if Y is None:
+        x_list, w_list = [ x ], [ w ]
+    else:
+        # If no specific categories are given, then partition by all unique
+        # labels in Y.
+        if not categories:
+            categories = np.unique(Y)
+
+        # Perform the partition.
+        for i, l in enumerate(categories):
+            subset = (Y == l)
+            x_l, w_l = x[subset], w[subset]
+            x_list.append(x_l)
+            w_list.append(w_l)
+
+    return x_list, w_list
+
+
+def histRec(X, feature_name, weights=None,
+            Y=None, categories=None, **kwargs):
+    """
+    This is a wrapper for histR to work more conveniently with structured
+    arrays.
+
+    This function uses the native functions of Axes.hist, but extends it to
+    also plot a spline that gives an approximation to the density estimate.
+
+
+    Parameters
+    ----------
+    X : Structured ndarray.
+
+    feature_name : String. The name of the field from which to
+                   make the histogram.
+
+    weights : String or ndarray. If string, the weights of the record are
+              are assumed to be under the given field name. If an ndarray,
+              it should have the same length as the structured array where
+              element i weight for the ith record.
+              Default: None.
+
+    Y : String or ndarray. If string, the category of each record is assumed
+        to be under the given field name. If an ndarray, it should have the same
+        length as the structured array where element i is the category label for
+        the ith record.
+
+    **kwargs : These are keyword arguments for histR. Notable ones include:
+
+        *bins* : Number of bins for the histogram.
+                 Default: 10.
+
+        *normed* : Whether to normalize the histogram. If True, the spline
+                   will also be normalized.
+                   Default: False.
+
+        *stacked* : Whether to stack the histogram. If True, the spline
+                    will trace the overall result.
+                    Default: False.
+
+        *show_hist* : Bool. Whether to display the histogram. Default: True.
+
+        *show_spline* : Bool. Whether to display the spline. When show_hist=True,
+                    the spline hugs the histogram outline. When show_hist=False, the
+                    spline integrates to the weighted counts of the input data.
+                    Default: False.
+
+        *knots_spline* : Float or a list of floats. This adjust the coarseness of the spline
+                    interpolation. It is the same as the number of bins used to determine
+                    the knot locations in the spline computation. Specify a list if you
+                    want to adjust each spline component separately.
+                    Default: 10
+
+        *x_display_range* : Tuple. This is the range on the x-axis for which to display the
+                            results. It feeds directly into Axes.set_xlim(). Default: None.
+
+        *lw_spline * : Linewidth of the splines. Default: 2.0.
+
+        *hist_colors * : List of strings. This is the color rotation used for the histograms.
+
+        *spline_colors * : List of strings. This is the color rotation used for the splines.
+
+        *ax * : This is the axes to which the drawing is directed.
+            Default: None, which converts to pyplot.gca().
+
+        *neval_spline* : Int. The number of points to evaluate the spline for display.
+                    Default: 1000
+
+        *xlabel * : X axis label.
+
+        *ylabel * : Y axis label.
+
+        *title * : Plot title.
+
+        *axislabel_fontsize* : Fontsize of axis tick label. Default: 20.
+
+        *legend * : Whether to include a legend.
+                Default: False.
+
+        *legend_names * : List of strings. Element i corresonds to component i of the
+                    histogram. Default: None, which gets converted to
+                    numbers, one for each category.
+
+        *legend_loc * : Legend location; same as *loc* keyword argument for pyplot.legend().
+                    Default: None, which is 'best'.
+
+        *legend_ncol * : Number of columns in the legend; same as *ncol* keyword argument for
+                    pyplot.legend(). Default: 1.
+
+        *legend_fontsize * : Legend fontsize. Default: 20.
+
+    Returns
+    -------
+    This function does not return anything.
+    (In contrast to the original `pyplot.scatter()` function)
+
+    """
+
+    x = X[feature_name]
+
+    w = weights
+    if weights is not None:
+        if isinstance(weights, str): w = X[weights]
+
+    if Y is not None:
+        if isinstance(Y, str): Y = X[Y]
+
+    x_list, w_list = partition_by_labels(x, w, Y, categories)
+
+    histR(x_list, weights=w_list, **kwargs)
+
 
 if __name__ == "__main__":
 
@@ -366,7 +509,7 @@ if __name__ == "__main__":
     fig, ax = create_single_figure()
     histR([data1, data2], weights=[weight1, weight2],
           knots_spline=10,
-          show_hist=True, show_spline=True,
+          show_hist=False, show_spline=True,
           bins=20, stacked=False, normed=False,
           xlabel='Feature', ylabel='Counts', title='Stacked',
           legend=True, legend_names=['label1', 'label2'])
