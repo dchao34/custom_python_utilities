@@ -33,6 +33,7 @@ def histR(x,
           show_hist=True, show_spline=False, knots_spline=None,
           x_display_range=None,
           hist_colors=None, spline_colors=None,
+          lw_hist=None,
           lw_spline=None, neval_spline=None,
           xlabel=None, ylabel=None, title=None,
           axislabel_fontsize=20,
@@ -83,6 +84,8 @@ def histR(x,
 
     x_display_range : Tuple. This is the range on the x-axis for which to display the
                       results. It feeds directly into Axes.set_xlim(). Default: None.
+
+    lw_hist : Linewidth of the histogram. Default: 1.0.
 
     lw_spline : Linewidth of the splines. Default: 2.0.
 
@@ -168,6 +171,9 @@ def histR(x,
                             for i in range(len(x)) ]
         kwargs['color'] = hist_colors
 
+        # Adjust linewidth of the patches
+        if lw_hist is None: lw_hist = 1.0
+
         # Adjust the patch widths to occupy the entire bin. There's still going to
         # be spacing between the patches, since the patch linewidth is non-zero.
         if 'rwidth' not in kwargs: kwargs['rwidth'] = 1
@@ -179,7 +185,9 @@ def histR(x,
         # Adjust the line color of the histogram patches.
         if isinstance(hist_counts[0], np.ndarray):
             for i, patch_list in enumerate(hist_patches):
-                for patch in patch_list: patch.set_ec('white')
+                for patch in patch_list:
+                    patch.set_ec('white')
+                    patch.set_linewidth(lw_hist)
                 hist_legend_handles.append(hist_patches[i][0])
         else:
             for patch in hist_patches: patch.set_ec('white')
@@ -360,6 +368,8 @@ def partition_by_labels(x, w, Y=None, categories=None):
             x_l, w_l = x[subset], w[subset]
             x_list.append(x_l)
             w_list.append(w_l)
+
+    if w is None: w_list = None
 
     return x_list, w_list
 
