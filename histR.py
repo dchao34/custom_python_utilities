@@ -365,9 +365,13 @@ def partition_by_labels(x, w, Y=None, categories=None):
         # Perform the partition.
         for i, l in enumerate(categories):
             subset = (Y == l)
-            x_l, w_l = x[subset], w[subset]
+
+            x_l = x[subset]
             x_list.append(x_l)
-            w_list.append(w_l)
+
+            if w is not None:
+                w_l = w[subset]
+                w_list.append(w_l)
 
     if w is None: w_list = None
 
